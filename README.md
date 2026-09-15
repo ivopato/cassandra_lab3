@@ -1,216 +1,165 @@
-# ITESO BDNR - Cassandra Sample
+# ITESO BDNR - Cassandra Sample (Rama Esqueleto)
 
-A sample investment portfolio application demonstrating Cassandra data modeling patterns with a REST API architecture.
+Plantilla y arquitectura base modular diseñada para implementar de forma sencilla cualquier modelo de datos en Apache Cassandra, utilizando una arquitectura cliente-servidor con una API REST en Python (Falcon ASGI) y un cliente de consola interactivo.
 
-## Architecture
+---
+
+## Arquitectura
 
 ```
-┌────────────┐       ┌────────────┐       ┌────────────┐
-│   Client   │ HTTP  │   Server   │ CQL   │ Cassandra  │
-│   (CLI)    │ ────► │ (REST API) │ ────► │ (Docker)   │
-└────────────┘       └────────────┘       └────────────┘
-     client/              server/           port 9042
+┌────────────────────────┐       ┌────────────────────────┐       ┌────────────────────────┐
+│     Cliente Python     │ HTTP  │        Servidor        │ CQL   │       Cassandra        │
+│    (client/menu.py)    │ ────► │      (API REST /       │ ────► │     (Docker / Nodo)    │
+│                        │       │      Falcon ASGI)      │       │                        │
+└────────────────────────┘       └────────────────────────┘       └────────────────────────┘
+         client/                          server/                         puerto 9042
 ```
 
-## Project Structure
+---
+
+## Estructura del Proyecto
 
 ```
 iteso-bdnr-cassandra-sample/
-├── server/
-│   ├── app.py          # Falcon application and routes
-│   ├── resources.py    # REST endpoint handlers
-│   └── model.py        # Cassandra schema and queries
 ├── client/
-│   └── cli.py          # Command-line client
-├── data/
-│   ├── users.csv
-│   └── instruments.csv
-├── requirements.txt
+│   └── menu.py         # Menú interactivo de consola para realizar peticiones REST
+├── server/
+│   ├── app.py          # Configuración de la aplicación Falcon ASGI y rutas
+│   ├── resources.py    # Controladores de endpoints REST (Health, Setup, Data)
+│   └── model.py        # Conexión a Cassandra, creación de keyspace/tablas y consultas
+├── requirements.txt    # Dependencias del proyecto (servidor y cliente)
 └── README.md
 ```
 
-## Data Model
+---
 
-Six tables, all access patterns start from a known username (like a logged-in session):
+## Cómo implementar cualquier modelo de datos
 
-```
-username → accounts_by_user → account_id → positions_by_account
-                                         → trades_by_a_d   (all trades, by date)
-                                         → trades_by_a_td  (filter by type)
-                                         → trades_by_a_sd  (filter by symbol)
-                                         → trades_by_a_std (filter by symbol + type)
-```
+Esta plantilla permite adaptar el proyecto a cualquier caso de uso (por ejemplo: catálogo de canciones, usuarios, sensores, inventario, etc.) en tres pasos:
 
-| Table | Partition Key | Purpose |
-|-------|--------------|---------|
-| `accounts_by_user` | username | List accounts for a user |
-| `positions_by_account` | account_id | Current holdings per account |
-| `trades_by_a_d` | account_id | Trade history — date range queries |
-| `trades_by_a_td` | account_id | Trade history — filter by type |
-| `trades_by_a_sd` | account_id | Trade history — filter by symbol |
-| `trades_by_a_std` | account_id | Trade history — filter by symbol + type |
+1. **Definir tu esquema en [server/model.py](server/model.py)**:
+   - Modifica o agrega sentencias CQL en `CREATE_..._TABLE`.
+   - Registra cada tabla en la lista `ALL_TABLES = [('nombre_tabla', CREATE_..._TABLE)]`.
+   - Implementa o personaliza tus funciones de consulta e inserción (`insert_dict`, `insert_record`, `get_all_records`).
+2. **Personalizar endpoints en [server/resources.py](server/resources.py) y [server/app.py](server/app.py)**:
+   - Modifica `DataResource` o crea nuevos recursos Falcon según las entidades de tu modelo.
+   - Registra o actualiza las rutas con `app.add_route('/ruta', recurso)`.
+3. **Interactuar desde el cliente en [client/menu.py](client/menu.py)**:
+   - Agrega o ajusta las opciones del menú para llamar a los nuevos endpoints de tu API.
 
-The API automatically selects the right trade table based on your query filters.
+---
 
-## Setup
+## Puesta en Marcha
 
-You will need **2 terminal windows**: one for the server, one for the CLI.
+Se recomienda trabajar con **2 terminales**: una para mantener en ejecución el servidor ASGI y otra para utilizar el menú interactivo.
 
-### Step 1: Start Cassandra
+### 1. Iniciar Cassandra con Docker
 
 ```bash
 docker run --name cassandra -p 9042:9042 -d cassandra
 
-# Wait ~60 seconds for Cassandra to initialize, then verify:
+# Esperar aproximadamente 60 segundos a que el nodo termine de inicializar y verificar:
 docker exec -it cassandra cqlsh -e "describe cluster"
 ```
 
-### Step 2: Install Dependencies
+### 2. Entorno Virtual e Instalación de Dependencias
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate        # Linux/Mac
-# .\venv\Scripts\Activate.ps1   # Windows
+# Crear entorno virtual (si no existe)
+python3 -m venv .venv
 
+# Activar entorno virtual
+source .venv/bin/activate       # En Linux / macOS
+# .venv\Scripts\activate        # En Windows
+
+# Instalar dependencias
 pip install -r requirements.txt
 ```
 
-### Step 3: Start the API Server
+### 3. Iniciar el Servidor de la API REST
+
+En la primera terminal:
 
 ```bash
 cd server
 uvicorn app:app --reload --port 8001
 ```
 
-### Step 4: Create the Schema
+El servidor quedará disponible en `http://localhost:8001`.
+
+### 4. Ejecutar el Cliente Interactivo
+
+En la segunda terminal (con el entorno virtual activado):
 
 ```bash
 cd client
-source ../venv/bin/activate
-
-python cli.py setup
+python menu.py
 ```
 
-### Step 5: (Optional) Load Demo Data
+O directamente desde la raíz del repositorio:
+```bash
+python client/menu.py
+```
+
+---
+
+## Opciones del Cliente Interactivo (`menu.py`)
+
+El cliente por consola ofrece un menú en bucle que permite probar de inmediato las operaciones básicas:
+
+| Opción | Acción | Petición REST |
+|--------|--------|---------------|
+| **1** | Verificar estado del servidor | `GET /health` |
+| **2** | Inicializar esquema de base de datos | `POST /setup` (crea keyspace y tablas DDL) |
+| **3** | Consultar registros | `GET /data` |
+| **4** | Insertar un nuevo registro | `POST /data` (solicita los campos e inserta) |
+| **0** | Salir | Cierra el programa |
+
+---
+
+## Endpoints REST Disponibles
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET`  | `/health` | Verifica la salud del servicio y el estado de la conexión a Cassandra |
+| `POST` | `/setup`  | Ejecuta el DDL para crear el keyspace y las tablas en `ALL_TABLES` |
+| `GET`  | `/data`   | Obtiene la lista de registros almacenados (parámetro opcional: `?limit=N`) |
+| `POST` | `/data`   | Inserta un nuevo registro directamente a partir de un cuerpo JSON |
+
+### Ejemplos con `curl`
 
 ```bash
-python cli.py seed --accounts 5 --trades 10
-```
-
-This inserts demo data by calling the real business endpoints — the same code path as actual trades.
-
-## CLI Commands
-
-### Admin
-
-| Command | Description |
-|---------|-------------|
-| `status` | Check if API is running |
-| `setup` | Create keyspace and all 6 tables (DDL only) |
-| `seed --accounts N --trades N` | Insert demo data |
-
-### Portfolio Actions
-
-| Command | Description |
-|---------|-------------|
-| `accounts --username NAME` | List accounts for a user |
-| `open-account --username NAME --name NAME --balance N` | Open a new account |
-| `buy --username NAME --account ID --symbol SYM --shares N --price N` | Place a buy order |
-| `sell --username NAME --account ID --symbol SYM --shares N --price N` | Place a sell order |
-| `portfolio --account ID` | View current holdings |
-| `history --account ID [filters]` | View trade history |
-
-### Typical Session
-
-```bash
-# 1. List accounts for a user (username is always the starting point)
-python cli.py accounts --username alice
-
-# 2. Open a new account
-python cli.py open-account --username alice --name "Alice's Portfolio" --balance 50000
-
-# 3. Trade  (--username is required for the cash balance update)
-python cli.py buy  --username alice --account <id> --symbol AAPL --shares 10 --price 180.50
-python cli.py sell --username alice --account <id> --symbol AAPL --shares  5 --price 190.00
-
-# 4. Check holdings
-python cli.py portfolio --account <id>
-
-# 5. View trade history — each filter routes to a different Cassandra table
-python cli.py history --account <id>                           # → trades_by_a_d
-python cli.py history --account <id> --symbol AAPL            # → trades_by_a_sd
-python cli.py history --account <id> --type buy               # → trades_by_a_td
-python cli.py history --account <id> --symbol AAPL --type buy # → trades_by_a_std
-```
-
-### Trade Output
-
-Every `buy` or `sell` prints the 6 Cassandra writes it triggered:
-
-```
-Buying 10x AAPL @ $180.50  (total $1,805.00)
-
-Order executed!
-
-  Trade ID:      ...
-  Bought:        10x AAPL
-  Price:         $180.50
-  Total:         $1,805.00
-  Cash balance:  $48,195.00
-
-Cassandra writes (6):
-  [1/6] trades_by_a_d         ← all trades — date range queries
-  [2/6] trades_by_a_td        ← trades filtered by type
-  [3/6] trades_by_a_std       ← trades filtered by symbol + type
-  [4/6] trades_by_a_sd        ← trades filtered by symbol
-  [5/6] positions_by_account  ← AAPL: 0 → 10 shares
-  [6/6] accounts_by_user      ← cash: $50,000.00 → $48,195.00
-```
-
-## REST API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Health check |
-| POST | `/setup` | Create keyspace + 6 tables (DDL only) |
-| POST | `/seed` | Insert demo data |
-| GET | `/accounts?username=X` | List accounts for a user |
-| POST | `/accounts` | Open a new account |
-| GET | `/accounts/{id}/portfolio` | Current holdings |
-| POST | `/accounts/{id}/trades` | Execute a trade (6 writes) |
-| GET | `/accounts/{id}/trades` | Trade history (routes across 4 tables) |
-
-### Example API Calls
-
-```bash
+# 1. Comprobar salud del servicio
 curl http://localhost:8001/health
+
+# 2. Crear keyspace y tablas
 curl -X POST http://localhost:8001/setup
-curl "http://localhost:8001/accounts?username=alice"
 
-curl -X POST http://localhost:8001/accounts \
+# 3. Consultar registros existentes
+curl http://localhost:8001/data
+
+# 4. Insertar un registro
+curl -X POST http://localhost:8001/data \
   -H "Content-Type: application/json" \
-  -d '{"username": "alice", "name": "Alice Portfolio", "initial_balance": 50000}'
-
-curl -X POST http://localhost:8001/accounts/<id>/trades \
-  -H "Content-Type: application/json" \
-  -d '{"username": "alice", "type": "buy", "symbol": "AAPL", "shares": 10, "price": 180.50}'
-
-curl "http://localhost:8001/accounts/<id>/trades?symbol=AAPL&type=buy"
+  -d '{"id": "1", "nombre": "Elemento A", "categoria": "General", "valor": "99.9"}'
 ```
 
-## Environment Variables
+---
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `API_URL` | `http://localhost:8001` | API URL (client) |
-| `CASSANDRA_HOST` | `localhost` | Cassandra host (server) |
-| `CASSANDRA_PORT` | `9042` | Cassandra port (server) |
-| `CASSANDRA_KEYSPACE` | `investments` | Keyspace name (server) |
+## Variables de Entorno
 
-## Troubleshooting
+| Variable | Valor por defecto | Descripción |
+|----------|-------------------|-------------|
+| `API_URL` | `http://localhost:8001` | URL base de la API utilizada por el cliente |
+| `CASSANDRA_HOST` | `localhost` | Host o dirección IP del nodo de Cassandra |
+| `CASSANDRA_PORT` | `9042` | Puerto CQL de conexión |
+| `CASSANDRA_KEYSPACE` | `app_keyspace` | Nombre del keyspace a utilizar en Cassandra |
+| `CASSANDRA_REPLICATION_FACTOR` | `1` | Factor de replicación para el keyspace |
 
-**"Cannot connect to API"** — make sure the server is running: `cd server && uvicorn app:app --reload --port 8001`
+---
 
-**"Failed to connect to Cassandra"** — wait ~60s after starting Docker, then check: `docker exec -it cassandra cqlsh -e "describe cluster"`
+## Solución de Problemas
 
-**"Account not found"** — run `setup` first, then `seed` or `open-account`
+- **"No se pudo conectar con el servidor"**: Asegúrate de haber iniciado el servidor con `uvicorn app:app --reload --port 8001` dentro de la carpeta `server/`.
+- **"Failed to connect to Cassandra"**: Cassandra suele tardar entre 40 y 60 segundos en iniciar en Docker. Revisa el estado de inicio con `docker logs cassandra`.
+- **"ModuleNotFoundError: No module named 'requests'"**: Verifica que tu terminal tenga activo el entorno virtual (`source .venv/bin/activate`).

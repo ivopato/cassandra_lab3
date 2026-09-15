@@ -2,8 +2,6 @@
 cassandra-driver
 falcon
 uvicorn
-time-uuid
 
 # Client dependencies
 requests
-tabulate
