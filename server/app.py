@@ -10,7 +10,11 @@ from model import CassandraConnection
 from resources import (
     HealthResource,
     SetupResource,
-    DataResource,
+    OrderResource,
+    OrdersByCustomerResource,
+    ProductsByOrderResource,
+    ShipmentResource,
+    ShipmentsByOrderResource,
 )
 
 # Configuración de logging
@@ -67,21 +71,34 @@ def create_app():
         CORSMiddleware(),
     ])
 
-    # Instanciación de recursos
+    # resources
     health_resource = HealthResource(connection)
-    setup_resource  = SetupResource(connection)
-    data_resource   = DataResource(connection)
+    setup_resource= SetupResource(connection)
+    order_resource = OrderResource(connection)
+    orders_by_customer_resource = OrdersByCustomerResource(connection)
+    products_by_order_resource = ProductsByOrderResource(connection)
+    shipment_resource = ShipmentResource(connection)
+    shipments_by_order_resource = ShipmentsByOrderResource(connection)
 
     # Registro de rutas REST
     app.add_route('/health', health_resource)
-    app.add_route('/setup',  setup_resource)
-    app.add_route('/data',   data_resource)
+    app.add_route('/setup', setup_resource)
+
+    app.add_route('/orders', order_resource)
+    app.add_route('/customers/{email}/orders', orders_by_customer_resource)
+    app.add_route('/orders/{order_number}/products', products_by_order_resource)
+    app.add_route('/orders/{order_number}/shipments', shipments_by_order_resource)
+
+    app.add_route('/shipments', shipment_resource)
 
     log.info("Rutas registradas:")
-    log.info("  GET   /health")
-    log.info("  POST  /setup")
-    log.info("  GET   /data")
-    log.info("  POST  /data")
+    log.info("GET/health")
+    log.info("POST/setup")
+    log.info("POST/orders")
+    log.info("GET/customers/{email}/orders")
+    log.info("GET/orders/{order_number}/products")
+    log.info("GET/orders/{order_number}/shipments")
+    log.info("POST/shipments")
 
     return app
 
